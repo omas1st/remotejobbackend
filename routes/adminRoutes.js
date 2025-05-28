@@ -2,6 +2,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const multer = require('multer');
 
 const auth = require('../middleware/auth');
@@ -10,13 +11,13 @@ const ctrl = require('../controllers/adminController');
 
 const router = express.Router();
 
-// Ensure the Vercel‐writable temp directory exists
-const uploadDir = '/tmp/uploads';
+// Use a cross-platform temp directory (writable on Vercel and locally)
+const uploadDir = path.join(os.tmpdir(), 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Use /tmp/uploads for multer storage
+// Configure multer to store uploads in that temp directory
 const upload = multer({ dest: uploadDir });
 
 // 1. Users Profile
