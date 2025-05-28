@@ -1,7 +1,8 @@
 // backend/routes/adminRoutes.js
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
 
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
@@ -9,13 +10,23 @@ const ctrl = require('../controllers/adminController');
 
 const router = express.Router();
 
+// Ensure the Vercel‐writable temp directory exists
+const uploadDir = '/tmp/uploads';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Use /tmp/uploads for multer storage
+const upload = multer({ dest: uploadDir });
+
 // 1. Users Profile
 router.get('/users', auth, admin, ctrl.getAllUsers);
 
-// 2. Message Page
+// 2. Message Page (with optional file)
 router.post(
   '/message',
-  auth, admin,
+  auth,
+  admin,
   upload.single('file'),
   ctrl.sendMessageToUser
 );
@@ -34,15 +45,34 @@ router.delete('/tasks/:id', auth, admin, ctrl.deleteTask);
 
 // 6. Payment URL Page
 router.post('/payment-url', auth, admin, ctrl.setPaymentUrl);
-// 6b. Get payment URLs for a user
 router.get('/payment-url', auth, admin, ctrl.getPaymentUrls);
 
 // 7. Task Payment Approval
-router.get('/task-submissions', auth, admin, ctrl.getTaskSubmissions);
-router.post('/approve-submission/:submissionId', auth, admin, ctrl.approveSubmission);
-router.delete('/submission/:submissionId', auth, admin, ctrl.deleteSubmission);
+router.get(
+  '/task-submissions',
+  auth,
+  admin,
+  ctrl.getTaskSubmissions
+);
+router.post(
+  '/approve-submission/:submissionId',
+  auth,
+  admin,
+  ctrl.approveSubmission
+);
+router.delete(
+  '/submission/:submissionId',
+  auth,
+  admin,
+  ctrl.deleteSubmission
+);
 
 // 8. Start Task Page (update URL)
-router.post('/tasks/:id/url', auth, admin, ctrl.updateTaskUrl);
+router.post(
+  '/tasks/:id/url',
+  auth,
+  admin,
+  ctrl.updateTaskUrl
+);
 
 module.exports = router;
