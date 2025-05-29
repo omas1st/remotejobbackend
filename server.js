@@ -5,12 +5,12 @@ const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 
 // Route modules
-const authRoutes      = require('./routes/authRoutes');
+const authRoutes = require('./routes/authRoutes');
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
-const userRoutes      = require('./routes/userRoutes');
-const taskRoutes      = require('./routes/taskRoutes');
-const walletRoutes    = require('./routes/walletRoutes');
-const adminRoutes     = require('./routes/adminRoutes');
+const userRoutes = require('./routes/userRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const walletRoutes = require('./routes/walletRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -19,7 +19,7 @@ app.use(cookieParser());
 
 // Enable CORS with credentials
 app.use(cors({ 
-  origin: true, 
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true 
 }));
 
@@ -36,17 +36,17 @@ app.get('/', (req, res) => {
 });
 
 // Mount API routes
-app.use('/api/auth',       authRoutes);       // user signup/login
-app.use('/api/admin/auth', adminAuthRoutes);  // admin login
-app.use('/api/users',      userRoutes);       // user profile & messages
-app.use('/api/tasks',      taskRoutes);       // task listing, start, attempt
-app.use('/api/wallet',     walletRoutes);     // wallet & withdrawals
-app.use('/api/admin',      adminRoutes);      // admin panel CRUD
+app.use('/api/auth', authRoutes);
+app.use('/api/admin/auth', adminAuthRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Not found' });
 });
 
-// Export app for Vercel (no app.listen here)
+// Export app
 module.exports = app;
