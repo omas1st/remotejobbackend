@@ -1,8 +1,7 @@
-// backend/server.js
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 
 // Route modules
@@ -15,8 +14,14 @@ const adminRoutes     = require('./routes/adminRoutes');
 
 const app = express();
 
-// Enable CORS for all origins
-app.use(cors({ origin: '*' }));
+// Add cookie parser
+app.use(cookieParser());
+
+// Enable CORS with credentials
+app.use(cors({ 
+  origin: true, 
+  credentials: true 
+}));
 
 // Parse JSON and URL-encoded bodies
 app.use(express.json());
