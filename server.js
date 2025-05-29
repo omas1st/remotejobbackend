@@ -1,44 +1,36 @@
-// backend/server.js
-const path = require('path');
+// server.js
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
-const http = require('http');
-const socketio = require('socket.io');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+require('dotenv').config();
 
-dotenv.config();
-connectDB();
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 
 const app = express();
+
+// middleware
 app.use(cors());
 app.use(express.json());
 
-// Mount your routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/admin/auth', require('./routes/adminAuthRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/tasks', require('./routes/taskRoutes'));
-app.use('/api/wallet', require('./routes/walletRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes'));
+// connect Mongo
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('Mongo connection error:', err));
 
-// Serve React (production) ...
-if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, '../frontend/build');
-  app.use(express.static(buildPath));
-  app.get('*', (req, res) => res.sendFile(path.join(buildPath, 'index.html')));
-} else {
-  app.get('/', (req, res) => res.send('API is running'));
-}
+// routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/tasks', taskRoutes);
 
-// Create HTTP server and Socket.IO
-const server = http.createServer(app);
-const io = new socketio.Server(server, {
-  cors: { origin: '*' }
+// fallback
+app.use((req, res) => {
+  res.status(404).json({ message: 'Not found' });
 });
 
-// Make io available to controllers
-app.locals.io = io;
-
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// export the app for Vercel
+module.exports = app;
