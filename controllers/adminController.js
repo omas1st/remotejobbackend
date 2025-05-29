@@ -17,20 +17,20 @@ exports.getAllUsers = async (req, res) => {
 };
 
 /**
- * 2. Message Page
+ * 2. Message Page (no file upload)
  */
 exports.sendMessageToUser = async (req, res) => {
-  const { email } = req.body;
-  const filePath = req.file ? req.file.path : null;
+  const { email, message } = req.body;
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const msg = {
       from: 'Admin',
-      content: req.body.message,
-      files: filePath ? [filePath] : []
+      content: message,
+      files: []  // uploads disabled
     };
+
     user.messages.push(msg);
     await user.save();
 
@@ -242,7 +242,7 @@ exports.approveSubmission = async (req, res) => {
 };
 
 /**
- * 7c. Delete a submission (remove approved row)
+ * 7c. Delete a submission
  */
 exports.deleteSubmission = async (req, res) => {
   const { submissionId } = req.params;
