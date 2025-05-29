@@ -1,56 +1,60 @@
-// backend/server.js
-const path = require('path');
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+// server.js
 
-dotenv.config();
-connectDB();
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+
+// route modules
+const authRoutes      = require('./routes/authRoutes');
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
+const userRoutes      = require('./routes/userRoutes');
+const adminRoutes     = require('./routes/adminRoutes');
+const taskRoutes      = require('./routes/taskRoutes');
+const walletRoutes    = require('./routes/walletRoutes');
 
 const app = express();
+
+// ——————————————
+// Middleware
+// ——————————————
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ——————————————
-// Mount your API routes
+// Root health check
 // ——————————————
-app.use('/api/auth',        require('./routes/authRoutes'));       // user login/register
-app.use('/api/admin/auth',  require('./routes/adminAuthRoutes'));  // admin login
-app.use('/api/users',       require('./routes/userRoutes'));       // user profile, messages
-app.use('/api/tasks',       require('./routes/taskRoutes'));       // tasks start/attempt
-app.use('/api/wallet',      require('./routes/walletRoutes'));     // wallet & withdraw
-app.use('/api/admin',       require('./routes/adminRoutes'));      // admin panel CRUD
+app.get('/', (req, res) => {
+  res.json({ message: 'API is running' });
+});
 
 // ——————————————
-// Static assets & client fallback
+// MongoDB Connection
 // ——————————————
-if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, '../frontend/build');
-  app.use(express.static(buildPath));
-  app.get('*', (req, res) => {
-    // Serve React’s index.html for any non-API route
-    res.sendFile(path.join(buildPath, 'index.html'));
-  });
-} else {
-  // Health check / development root
-  app.get('/', (req, res) => {
-    res.json({ message: 'API is running' });
-  });
-}
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // ——————————————
-// Server start (only if run directly)
+// Mount API Routes
 // ——————————————
-if (require.main === module) {
-  // Not running as a Vercel serverless function
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+app.use('/api/auth',        authRoutes);        // user login/register
+app.use('/api/admin/auth',  adminAuthRoutes);   // admin login
+app.use('/api/users',       userRoutes);        // user profile, messages
+app.use('/api/tasks',       taskRoutes);        // task start/attempt
+app.use('/api/wallet',      walletRoutes);      // wallet & withdraw
+app.use('/api/admin',       adminRoutes);       // admin panel
 
 // ——————————————
-// Export for Vercel or tests
+// 404 catch-all
+// ——————————————
+app.use((req, res) => {
+  res.status(404).json({ message: 'Not found' });
+});
+
+// ——————————————
+// Export for Vercel
 // ——————————————
 module.exports = app;
