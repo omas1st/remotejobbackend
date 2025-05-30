@@ -1,15 +1,11 @@
 require('dotenv').config();
+console.log('Starting server...');
+console.log('Environment:', process.env.NODE_ENV || 'development');
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
-const connectDB = require('./config/db');
-
-console.log('Starting server...');
-console.log('Environment:', process.env.NODE_ENV || 'development');
-
-// Connect to MongoDB first
-connectDB();
 
 // Route modules
 const authRoutes = require('./routes/authRoutes');
@@ -24,37 +20,57 @@ const app = express();
 // Add cookie parser
 app.use(cookieParser());
 
+// Parse JSON and URL-encoded bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // CORS configuration
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'https://remoteworker-nine.vercel.app',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
 console.log('CORS configured with origin:', corsOptions.origin);
 
-// Parse JSON and URL-encoded bodies
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// MongoDB connection
+const connectDB = async () => {
+  try {
+    console.log('Connecting to MongoDB...');
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000
+    });
+    console.log('MongoDB connected successfully');
+  } catch (err) {
+    console.error('MongoDB connection error:', err.message);
+    // Don't throw error to allow server to start
+  }
+};
+
+connectDB();
+
+// Log all requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Health check endpoint
 app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  
   res.json({
     status: 'active',
     message: 'Remote Worker API is running',
-    version: '1.2.1',
+    version: '1.1.0',
     environment: process.env.NODE_ENV || 'development',
     database: dbStatus,
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      auth: '/api/auth',
-      admin: '/api/admin',
-      users: '/api/users'
-    }
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -88,15 +104,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-});
-
+// Export app for Vercel
 console.log('Server initialized');
 module.exports = app;
