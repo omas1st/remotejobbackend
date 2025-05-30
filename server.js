@@ -33,14 +33,45 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Health check
-app.get('/api', (req, res) => {
+// Root endpoint handler
+app.get('/', (req, res) => {
   res.json({
     status: 'active',
     message: 'Remote Worker API is running',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      api_docs: '/api',
+      auth: '/api/auth',
+      admin: '/api/admin',
+      users: '/api/users'
+    }
+  });
+});
+
+// API documentation endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'active',
+    message: 'API Documentation',
+    endpoints: {
+      auth: {
+        register: 'POST /api/auth/register',
+        login: 'POST /api/auth/login',
+        profile: 'GET /api/auth/me'
+      },
+      users: {
+        profile: 'GET /api/users/profile',
+        messages: 'GET /api/users/messages'
+      },
+      tasks: 'GET /api/tasks',
+      wallet: 'GET /api/wallet',
+      admin: {
+        users: 'GET /api/admin/users',
+        tasks: 'GET/POST /api/admin/tasks'
+      }
+    }
   });
 });
 
@@ -59,6 +90,16 @@ app.use('/api', (req, res) => {
     message: 'API endpoint not found',
     path: req.originalUrl,
     suggestion: 'Check /api for available endpoints'
+  });
+});
+
+// General 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'Endpoint not found',
+    path: req.originalUrl,
+    availableEndpoints: ['/', '/api', '/api/auth', '/api/admin']
   });
 });
 
