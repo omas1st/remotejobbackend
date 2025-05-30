@@ -4,7 +4,18 @@ const User = require('../models/User');
 const emailNotifier = require('../utils/emailNotifier');
 require('dotenv').config();
 
+// Set global timeout for auth operations
+const AUTH_TIMEOUT = 30000; // 30 seconds
+
 exports.register = async (req, res) => {
+  // Set timeout for registration
+  const timeout = setTimeout(() => {
+    return res.status(504).json({ 
+      status: 'error',
+      message: 'Registration timed out' 
+    });
+  }, AUTH_TIMEOUT);
+
   try {
     const {
       profileType,
@@ -19,23 +30,17 @@ exports.register = async (req, res) => {
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName || !phone || !gender || !country) {
+      clearTimeout(timeout);
       return res.status(400).json({ 
         status: 'error',
         message: 'All fields are required' 
       });
     }
 
-    // Password length validation
-    if (password.length < 6) {
-      return res.status(400).json({ 
-        status: 'error',
-        message: 'Password must be at least 6 characters' 
-      });
-    }
-
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email }).maxTimeMS(10000);
     if (existingUser) {
+      clearTimeout(timeout);
       return res.status(400).json({ 
         status: 'error',
         message: 'Email already registered' 
@@ -58,11 +63,11 @@ exports.register = async (req, res) => {
       password: hashed
     });
 
-    // Send registration notification (non-blocking)
+    // Send registration notification (async)
     emailNotifier(
       'New User Registration',
       `New ${profileType} registered: ${firstName} ${lastName} (${email})`
-    ).catch(err => console.error('Email notification failed:', err));
+    ).catch(console.error);
 
     // Create JWT token
     const token = jwt.sign(
@@ -71,6 +76,7 @@ exports.register = async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    clearTimeout(timeout);
     res.status(201).json({ 
       status: 'success',
       token, 
@@ -83,6 +89,7 @@ exports.register = async (req, res) => {
       }
     });
   } catch (err) {
+    clearTimeout(timeout);
     console.error('Registration Error:', err);
     
     let errorMessage = 'Registration failed';
@@ -98,24 +105,21 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  console.log('Received login request:', req.body);
-  
+  // Set timeout for login
+  const timeout = setTimeout(() => {
+    return res.status(504).json({ 
+      status: 'error',
+      message: 'Login timed out' 
+    });
+  }, AUTH_TIMEOUT);
+
   const { email, password } = req.body;
   
   try {
-    // Validate required fields
-    if (!email || !password) {
-      console.log('Missing email or password in login');
-      return res.status(400).json({ 
-        status: 'error',
-        message: 'Email and password are required' 
-      });
-    }
-
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Find user by email with timeout
+    const user = await User.findOne({ email }).maxTimeMS(10000);
     if (!user) {
-      console.log(`Login failed: User not found (${email})`);
+      clearTimeout(timeout);
       return res.status(400).json({ 
         status: 'error',
         message: 'Invalid credentials' 
@@ -125,22 +129,11 @@ exports.login = async (req, res) => {
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log(`Login failed: Password mismatch for ${email}`);
+      clearTimeout(timeout);
       return res.status(400).json({ 
         status: 'error',
         message: 'Invalid credentials' 
       });
-    }
-
-    // Send login notification
-    try {
-      await emailNotifier(
-        'User Login',
-        `${user.profileType} logged in: ${user.firstName} ${user.lastName} (${email})`
-      );
-      console.log('Login notification email sent');
-    } catch (emailErr) {
-      console.error('Failed to send login email:', emailErr);
     }
 
     // Create JWT token
@@ -150,8 +143,13 @@ exports.login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    console.log('Login successful, token generated');
+    // Send login notification (async)
+    emailNotifier(
+      'User Login',
+      `${user.profileType} logged in: ${user.firstName} ${user.lastName} (${email})`
+    ).catch(console.error);
 
+    clearTimeout(timeout);
     res.json({ 
       status: 'success',
       token, 
@@ -164,33 +162,19 @@ exports.login = async (req, res) => {
       }
     });
   } catch (err) {
+    clearTimeout(timeout);
     console.error('Login Error:', err);
     res.status(500).json({ 
       status: 'error',
-      message: 'Login failed',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      message: 'Login failed'
     });
   }
 };
 
-exports.getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: 'User not found' 
-      });
-    }
-    res.json({
-      status: 'success',
-      user
-    });
-  } catch (err) {
-    console.error('GetMe Error:', err);
-    res.status(500).json({ 
-      status: 'error',
-      message: 'Server error' 
-    });
-  }
+// Keep session alive endpoint
+exports.keepAlive = async (req, res) => {
+  res.json({ 
+    status: 'success',
+    message: 'Session extended' 
+  });
 };
