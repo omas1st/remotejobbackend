@@ -17,11 +17,22 @@ exports.register = async (req, res) => {
   } = req.body;
 
   try {
-    if (await User.findOne({ email })) {
+    // Validate required fields
+    if (!email || !password || !firstName || !lastName || !phone || !gender || !country) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
+
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
+
+    // Create user
     const user = await User.create({
       profileType,
       firstName,
@@ -33,11 +44,13 @@ exports.register = async (req, res) => {
       password: hashed
     });
 
+    // Send registration notification
     await emailNotifier(
       'New User Registration',
       `New ${profileType} registered: ${firstName} ${lastName} (${email})`
     );
 
+    // Create JWT token
     const token = jwt.sign(
       { id: user._id, profileType: user.profileType, isAdmin: false },
       process.env.JWT_SECRET,
@@ -52,27 +65,57 @@ exports.register = async (req, res) => {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     });
 
-    res.status(201).json({ token, user });
+    // Return success response with token and user data
+    res.status(201).json({ 
+      success: true,
+      token, 
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileType: user.profileType,
+        walletBalance: user.walletBalance
+      }
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Registration Error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Registration failed',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
+  
   try {
+    // Validate required fields
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    // Find user by email
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
-    if (!(await bcrypt.compare(password, user.password))) {
+    if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // Verify password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Send login notification
     await emailNotifier(
       'User Login',
       `${user.profileType} logged in: ${user.firstName} ${user.lastName} (${email})`
     );
 
+    // Create JWT token
     const token = jwt.sign(
       { id: user._id, profileType: user.profileType, isAdmin: false },
       process.env.JWT_SECRET,
@@ -87,19 +130,38 @@ exports.login = async (req, res) => {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     });
 
-    res.json({ token, user });
+    // Return success response with token and user data
+    res.json({ 
+      success: true,
+      token, 
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileType: user.profileType,
+        walletBalance: user.walletBalance
+      }
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login Error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Login failed',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
     res.json(user);
   } catch (err) {
-    console.error(err);
+    console.error('GetMe Error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
