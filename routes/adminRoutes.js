@@ -1,8 +1,5 @@
 // backend/routes/adminRoutes.js
 const express = require('express');
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
-
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const ctrl = require('../controllers/adminController');
@@ -12,13 +9,8 @@ const router = express.Router();
 // 1. Users Profile
 router.get('/users', auth, admin, ctrl.getAllUsers);
 
-// 2. Message Page
-router.post(
-  '/message',
-  auth, admin,
-  upload.single('file'),
-  ctrl.sendMessageToUser
-);
+// 2. Message Page - removed file upload
+router.post('/message', auth, admin, ctrl.sendMessageToUser);
 
 // 3. Wallet Page
 router.post('/wallet', auth, admin, ctrl.editWalletBalance);
