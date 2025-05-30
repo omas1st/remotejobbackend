@@ -63,15 +63,6 @@ exports.register = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // Set HTTP-only cookie
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: true, // Always secure in production
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      sameSite: 'none', // Required for cross-site
-      domain: process.env.COOKIE_DOMAIN || '.vercel.app'
-    });
-
     // Return success response
     res.status(201).json({ 
       status: 'success',
@@ -136,15 +127,6 @@ exports.login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    // Set HTTP-only cookie
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: true, // Always secure in production
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      sameSite: 'none', // Required for cross-site
-      domain: process.env.COOKIE_DOMAIN || '.vercel.app'
-    });
 
     // Return success response
     res.json({ 

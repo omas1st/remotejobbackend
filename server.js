@@ -33,29 +33,14 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Health check with detailed information
-app.get('/', (req, res) => {
+// Health check
+app.get('/api', (req, res) => {
   res.json({
     status: 'active',
     message: 'Remote Worker API is running',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
-  });
-});
-
-// API documentation endpoint
-app.get('/api', (req, res) => {
-  res.json({
-    endpoints: {
-      auth: '/api/auth',
-      adminAuth: '/api/admin/auth',
-      users: '/api/users',
-      tasks: '/api/tasks',
-      wallet: '/api/wallet',
-      admin: '/api/admin'
-    },
-    status: 'active'
   });
 });
 
@@ -74,16 +59,6 @@ app.use('/api', (req, res) => {
     message: 'API endpoint not found',
     path: req.originalUrl,
     suggestion: 'Check /api for available endpoints'
-  });
-});
-
-// General 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    status: 'error',
-    message: 'Endpoint not found',
-    path: req.originalUrl,
-    availableEndpoints: ['/', '/api', '/api/auth', '/api/admin']
   });
 });
 
