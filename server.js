@@ -28,17 +28,34 @@ connectDB();
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true,
-  optionsSuccessStatus: 200 // For legacy browser support
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
 
-// Health check
+// Health check with detailed information
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'active',
-    message: 'API is running',
+    message: 'Remote Worker API is running',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
+  });
+});
+
+// API documentation endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    endpoints: {
+      auth: '/api/auth',
+      adminAuth: '/api/admin/auth',
+      users: '/api/users',
+      tasks: '/api/tasks',
+      wallet: '/api/wallet',
+      admin: '/api/admin'
+    },
+    status: 'active'
   });
 });
 
@@ -50,12 +67,23 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 404 handler
+// 404 handler for API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'API endpoint not found',
+    path: req.originalUrl,
+    suggestion: 'Check /api for available endpoints'
+  });
+});
+
+// General 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     status: 'error',
     message: 'Endpoint not found',
-    path: req.originalUrl
+    path: req.originalUrl,
+    availableEndpoints: ['/', '/api', '/api/auth', '/api/admin']
   });
 });
 
@@ -66,7 +94,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({
     status: 'error',
     message: 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { error: err.message })
+    ...(process.env.NODE_ENV !== 'production' && { 
+      error: err.message,
+      stack: err.stack 
+    })
   });
 });
 
