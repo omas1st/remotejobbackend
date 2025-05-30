@@ -5,23 +5,20 @@ const emailNotifier = require('../utils/emailNotifier');
 require('dotenv').config();
 
 exports.register = async (req, res) => {
-  console.log('Received registration request:', req.body);
-  
-  const {
-    profileType,
-    firstName,
-    lastName,
-    email,
-    phone,
-    gender,
-    country,
-    password
-  } = req.body;
-
   try {
+    const {
+      profileType,
+      firstName,
+      lastName,
+      email,
+      phone,
+      gender,
+      country,
+      password
+    } = req.body;
+
     // Validate required fields
     if (!email || !password || !firstName || !lastName || !phone || !gender || !country) {
-      console.log('Missing fields in registration');
       return res.status(400).json({ 
         status: 'error',
         message: 'All fields are required' 
@@ -31,7 +28,6 @@ exports.register = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.log(`Registration failed: Email already exists (${email})`);
       return res.status(400).json({ 
         status: 'error',
         message: 'Email already registered' 
@@ -41,7 +37,6 @@ exports.register = async (req, res) => {
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
-    console.log('Password hashed successfully');
 
     // Create user
     const user = await User.create({
@@ -55,18 +50,11 @@ exports.register = async (req, res) => {
       password: hashed
     });
 
-    console.log(`User created: ${user.email}`);
-
-    // Send registration notification
-    try {
-      await emailNotifier(
-        'New User Registration',
-        `New ${profileType} registered: ${firstName} ${lastName} (${email})`
-      );
-      console.log('Registration email sent');
-    } catch (emailErr) {
-      console.error('Failed to send registration email:', emailErr);
-    }
+    // Send registration notification (fire and forget)
+    emailNotifier(
+      'New User Registration',
+      `New ${profileType} registered: ${firstName} ${lastName} (${email})`
+    ).catch(console.error);
 
     // Create JWT token
     const token = jwt.sign(
@@ -74,8 +62,6 @@ exports.register = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    console.log('JWT token generated');
 
     res.status(201).json({ 
       status: 'success',
@@ -98,8 +84,7 @@ exports.register = async (req, res) => {
     
     res.status(500).json({ 
       status: 'error',
-      message: errorMessage,
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      message: errorMessage
     });
   }
 };
