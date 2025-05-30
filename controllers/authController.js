@@ -25,6 +25,14 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Password length validation
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        status: 'error',
+        message: 'Password must be at least 6 characters' 
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -50,11 +58,11 @@ exports.register = async (req, res) => {
       password: hashed
     });
 
-    // Send registration notification (fire and forget)
+    // Send registration notification (non-blocking)
     emailNotifier(
       'New User Registration',
       `New ${profileType} registered: ${firstName} ${lastName} (${email})`
-    ).catch(console.error);
+    ).catch(err => console.error('Email notification failed:', err));
 
     // Create JWT token
     const token = jwt.sign(
