@@ -6,6 +6,7 @@ console.log('Environment:', process.env.NODE_ENV || 'development');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');           // ← ADD THIS
 const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
@@ -17,9 +18,9 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
-// Ensure DB is connected before anything else
+// Ensure DB is connected before handling any requests
 connectDB().catch(err => {
-  console.error('Failed to connect to DB on startup, exiting.');
+  console.error('DB startup error, exiting.', err);
   process.exit(1);
 });
 
@@ -43,7 +44,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health-check (now guaranteed to show “connected” if up)
+// Health-check endpoint
 app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.json({
@@ -56,7 +57,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Routes
+// Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/users', userRoutes);
@@ -64,10 +65,12 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 404 & error handlers
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Endpoint not found', path: req.originalUrl });
 });
+
+// Error handler
 app.use((err, req, res, next) => {
   console.error('Server Error:', err);
   res.status(500).json({
@@ -77,6 +80,5 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Export for serverless
 console.log('Server initialized');
 module.exports = app;
