@@ -1,8 +1,7 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-module.exports = (req, res, next) => {
-  // Check multiple token locations
+const authMiddleware = (req, res, next) => {
   const token = req.header('x-auth-token') || req.cookies.token;
   
   if (!token) {
@@ -14,7 +13,8 @@ module.exports = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (err) {
-    console.error('Token verification error:', err.message);
     res.status(401).json({ message: 'Token not valid' });
   }
 };
+
+module.exports = authMiddleware;

@@ -2,7 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+
+console.log('Starting server...');
+console.log('Environment:', process.env.NODE_ENV || 'development');
+
+// Connect to MongoDB first
+connectDB();
 
 // Route modules
 const authRoutes = require('./routes/authRoutes');
@@ -17,28 +24,30 @@ const app = express();
 // Add cookie parser
 app.use(cookieParser());
 
-// Enable CORS with credentials
-app.use(cors({
+// CORS configuration
+const corsOptions = {
   origin: process.env.CORS_ORIGIN || 'https://remoteworker-nine.vercel.app',
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+};
+
+app.use(cors(corsOptions));
+console.log('CORS configured with origin:', corsOptions.origin);
 
 // Parse JSON and URL-encoded bodies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Connect to MongoDB
-connectDB();
-
-// Enhanced health check with DB status
+// Health check endpoint
 app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   
   res.json({
     status: 'active',
     message: 'Remote Worker API is running',
-    version: '1.2.0',
-    environment: process.env.NODE_ENV || 'production',
+    version: '1.2.1',
+    environment: process.env.NODE_ENV || 'development',
     database: dbStatus,
     timestamp: new Date().toISOString(),
     endpoints: {
@@ -57,22 +66,12 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Timeout middleware
-app.use((req, res, next) => {
-  req.setTimeout(30000, () => { // 30-second timeout
-    res.status(504).json({ 
-      status: 'error',
-      message: 'Request timeout' 
-    });
-  });
-  next();
-});
-
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ 
     status: 'error',
-    message: 'Endpoint not found' 
+    message: 'Endpoint not found',
+    path: req.originalUrl
   });
 });
 
@@ -83,8 +82,21 @@ app.use((err, req, res, next) => {
   res.status(500).json({
     status: 'error',
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    ...(process.env.NODE_ENV !== 'production' && { 
+      error: err.message
+    })
   });
 });
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+});
+
+console.log('Server initialized');
 module.exports = app;
