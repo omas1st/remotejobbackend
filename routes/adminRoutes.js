@@ -1,5 +1,7 @@
 // backend/routes/adminRoutes.js
 const express = require('express');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
@@ -10,11 +12,11 @@ const router = express.Router();
 // 1. Users Profile
 router.get('/users', auth, admin, ctrl.getAllUsers);
 
-// 2. Message Page (uploads disabled)
+// 2. Message Page
 router.post(
   '/message',
-  auth,
-  admin,
+  auth, admin,
+  upload.single('file'),
   ctrl.sendMessageToUser
 );
 
@@ -32,6 +34,7 @@ router.delete('/tasks/:id', auth, admin, ctrl.deleteTask);
 
 // 6. Payment URL Page
 router.post('/payment-url', auth, admin, ctrl.setPaymentUrl);
+// 6b. Get payment URLs for a user
 router.get('/payment-url', auth, admin, ctrl.getPaymentUrls);
 
 // 7. Task Payment Approval
