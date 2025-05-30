@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 
 // Route modules
@@ -21,8 +22,19 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB
-connectDB();
+// Enhanced MongoDB connection with error handling
+const connectWithRetry = async () => {
+  try {
+    await connectDB();
+    console.log('MongoDB connected successfully');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  }
+};
+
+connectWithRetry();
 
 // CORS configuration
 const allowedOrigins = [
@@ -35,6 +47,7 @@ const corsOptions = {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -44,14 +57,19 @@ const corsOptions = {
     'Content-Type',
     'Authorization',
     'X-Requested-With',
-    'x-auth-token',
-    'X-Backend-URL'
+    'x-auth-token'
   ],
   optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // Enable preflight for all routes
+
+// Log all requests for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Root endpoint handler
 app.get('/', (req, res) => {
@@ -61,6 +79,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     endpoints: {
       api_docs: '/api',
       auth: '/api/auth',
@@ -75,6 +94,7 @@ app.get('/api', (req, res) => {
   res.json({
     status: 'active',
     message: 'API Documentation',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     endpoints: {
       auth: {
         register: 'POST /api/auth/register',
@@ -125,8 +145,27 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Server Error:', err);
+  console.error('Global Error Handler:', err);
   
+  // MongoDB connection error
+  if (err.name === 'MongoNetworkError') {
+    return res.status(503).json({
+      status: 'error',
+      message: 'Database connection error',
+      action: 'Retrying connection...'
+    });
+  }
+  
+  // CORS error
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Cross-origin request blocked',
+      allowedOrigins
+    });
+  }
+  
+  // General error response
   res.status(500).json({
     status: 'error',
     message: 'Internal server error',
@@ -135,6 +174,18 @@ app.use((err, req, res, next) => {
       stack: err.stack 
     })
   });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Graceful shutdown
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
 });
 
 // Export app for Vercel
