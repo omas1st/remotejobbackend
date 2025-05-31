@@ -12,34 +12,42 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ─── Mount your API routes (use exact paths under backend/routes) ───────────
-app.use('/api/auth',       require('./backend/routes/authRoutes'));
-app.use('/api/admin/auth', require('./backend/routes/adminAuthRoutes'));
-app.use('/api/users',      require('./backend/routes/userRoutes'));
-app.use('/api/tasks',      require('./backend/routes/taskRoutes'));
-app.use('/api/wallet',     require('./backend/routes/walletRoutes'));
-app.use('/api/admin',      require('./backend/routes/adminRoutes'));
+// ─── Mount your API routes ───────────────────────────────────────────────────
+// NOTE: This code assumes that your route files are in a top-level "routes" folder,
+//       e.g.:
+//         /server.js
+//         /routes/authRoutes.js
+//         /routes/adminAuthRoutes.js
+//         /routes/userRoutes.js
+//         /routes/taskRoutes.js
+//         /routes/walletRoutes.js
+//         /routes/adminRoutes.js
 
-// ─── If in production, serve the React build folder ─────────────────────────
+app.use('/api/auth',       require('./routes/authRoutes'));
+app.use('/api/admin/auth', require('./routes/adminAuthRoutes'));
+app.use('/api/users',      require('./routes/userRoutes'));
+app.use('/api/tasks',      require('./routes/taskRoutes'));
+app.use('/api/wallet',     require('./routes/walletRoutes'));
+app.use('/api/admin',      require('./routes/adminRoutes'));
+
+// ─── Serve React build in production ─────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
-  // NOTE: Adjust this path if your frontend build actually lives somewhere else.
   const buildPath = path.join(__dirname, 'frontend', 'build');
   app.use(express.static(buildPath));
 
-  // Catch-all: send index.html for any route NOT handled above
+  // For any other route, serve index.html
   app.get('*', (req, res) =>
     res.sendFile(path.join(buildPath, 'index.html'))
   );
 } else {
-  // In dev, just confirm the API is alive if you load “/”
   app.get('/', (_req, res) => res.send('API is running'));
 }
 
-// ─── Only start a local HTTP server when NOT on Vercel ───────────────────────
+// ─── Only start a local HTTP server if NOT on Vercel ─────────────────────────
 if (process.env.VERCEL !== '1') {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
-// ─── Export the Express application for Vercel to invoke as a Serverless Function ───
+// ─── Export the Express app for Vercel Serverless ────────────────────────────
 module.exports = app;
