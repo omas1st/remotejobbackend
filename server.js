@@ -12,48 +12,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ─── Safe helper to mount router modules ────────────────────────────────────
-function safeMount(prefix, modulePath) {
-  try {
-    const router = require(modulePath);
-    app.use(prefix, router);
-    console.log(`Mounted ${prefix} → ${modulePath}`);
-  } catch (err) {
-    console.error(`❌ Failed to mount [${prefix}] from "${modulePath}":`, err.message);
-    // Optionally log full stack:
-    // console.error(err);
-  }
-}
+// ─── Mount your API routes (use exact paths under backend/routes) ───────────
+app.use('/api/auth',       require('./backend/routes/authRoutes'));
+app.use('/api/admin/auth', require('./backend/routes/adminAuthRoutes'));
+app.use('/api/users',      require('./backend/routes/userRoutes'));
+app.use('/api/tasks',      require('./backend/routes/taskRoutes'));
+app.use('/api/wallet',     require('./backend/routes/walletRoutes'));
+app.use('/api/admin',      require('./backend/routes/adminRoutes'));
 
-// ─── Mount each route inside a try/catch ─────────────────────────────────────
-safeMount('/api/auth',       './routes/authRoutes');
-safeMount('/api/admin/auth', './routes/adminAuthRoutes');
-safeMount('/api/users',      './routes/userRoutes');
-safeMount('/api/tasks',      './routes/taskRoutes');
-safeMount('/api/wallet',     './routes/walletRoutes');
-safeMount('/api/admin',      './routes/adminRoutes');
-
-// ─── Production: serve React build; catch-all to index.html ────────────────
+// ─── If in production, serve the React build folder ─────────────────────────
 if (process.env.NODE_ENV === 'production') {
+  // NOTE: Adjust this path if your frontend build actually lives somewhere else.
   const buildPath = path.join(__dirname, 'frontend', 'build');
-  try {
-    app.use(express.static(buildPath));
-    app.get('*', (req, res) =>
-      res.sendFile(path.join(buildPath, 'index.html'))
-    );
-    console.log(`✔️  Serving React from "${buildPath}"`);
-  } catch (err) {
-    console.error(`❌ Failed to serve static build at "${buildPath}":`, err.message);
-  }
+  app.use(express.static(buildPath));
+
+  // Catch-all: send index.html for any route NOT handled above
+  app.get('*', (req, res) =>
+    res.sendFile(path.join(buildPath, 'index.html'))
+  );
 } else {
+  // In dev, just confirm the API is alive if you load “/”
   app.get('/', (_req, res) => res.send('API is running'));
 }
 
-// ─── Only start a real HTTP server if not on Vercel ─────────────────────────
+// ─── Only start a local HTTP server when NOT on Vercel ───────────────────────
 if (process.env.VERCEL !== '1') {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
-// ─── Export the Express app so Vercel can invoke it without spinning up a new server ─────
+// ─── Export the Express application for Vercel to invoke as a Serverless Function ───
 module.exports = app;
