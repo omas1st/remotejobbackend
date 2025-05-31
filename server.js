@@ -1,3 +1,4 @@
+// server.js
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -11,38 +12,32 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mount your routes
-app.use('/api/auth', require('./routes/authRoutes'));
+// ─── Mount your API routes ───────────────────────────────────────────────────
+app.use('/api/auth',       require('./routes/authRoutes'));
 app.use('/api/admin/auth', require('./routes/adminAuthRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/tasks', require('./routes/taskRoutes'));
-app.use('/api/wallet', require('./routes/walletRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/users',      require('./routes/userRoutes'));
+app.use('/api/tasks',      require('./routes/taskRoutes'));
+app.use('/api/wallet',     require('./routes/walletRoutes'));
+app.use('/api/admin',      require('./routes/adminRoutes'));
 
-// Serve React (production)
+// ─── Serve React build in production ─────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, '../frontend/build');
+  const buildPath = path.join(__dirname, 'frontend', 'build');
   app.use(express.static(buildPath));
-  
-  // Fixed route pattern: use a proper wildcard pattern
-  app.get('*', (req, res) => res.sendFile(path.join(buildPath, 'index.html')));
+
+  // Catch-all to serve index.html
+  app.get('*', (req, res) =>
+    res.sendFile(path.join(buildPath, 'index.html'))
+  );
 } else {
-  app.get('/', (req, res) => res.send('API is running'));
+  app.get('/', (_req, res) => res.send('API is running'));
 }
 
-// Remove socket.io from Vercel environment
+// ─── Start HTTP server when running locally ──────────────────────────────────
 if (process.env.VERCEL !== '1') {
-  const http = require('http');
-  const socketio = require('socket.io');
-  const server = http.createServer(app);
-  const io = new socketio.Server(server, {
-    cors: { origin: '*' }
-  });
-  app.locals.io = io;
-  
   const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
-// Export for Vercel serverless
+// ─── Export Express app for Vercel ───────────────────────────────────────────
 module.exports = app;
