@@ -1,53 +1,80 @@
-// server.js
-const path = require('path');
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
+const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 
-dotenv.config();
-connectDB();
+// Route modules
+const authRoutes = require('./routes/authRoutes');
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
+const userRoutes = require('./routes/userRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const walletRoutes = require('./routes/walletRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
-app.use(cors());
+
+// Add cookie parser
+app.use(cookieParser());
+
+// Parse JSON and URL-encoded bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ─── Mount your API routes ───────────────────────────────────────────────────
-// NOTE: This code assumes that your route files are in a top-level "routes" folder,
-//       e.g.:
-//         /server.js
-//         /routes/authRoutes.js
-//         /routes/adminAuthRoutes.js
-//         /routes/userRoutes.js
-//         /routes/taskRoutes.js
-//         /routes/walletRoutes.js
-//         /routes/adminRoutes.js
+// Connect to MongoDB
+connectDB();
 
-app.use('/api/auth',       require('./routes/authRoutes'));
-app.use('/api/admin/auth', require('./routes/adminAuthRoutes'));
-app.use('/api/users',      require('./routes/userRoutes'));
-app.use('/api/tasks',      require('./routes/taskRoutes'));
-app.use('/api/wallet',     require('./routes/walletRoutes'));
-app.use('/api/admin',      require('./routes/adminRoutes'));
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
 
-// ─── Serve React build in production ─────────────────────────────────────────
-if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, 'frontend', 'build');
-  app.use(express.static(buildPath));
+app.use(cors(corsOptions));
 
-  // For any other route, serve index.html
-  app.get('*', (req, res) =>
-    res.sendFile(path.join(buildPath, 'index.html'))
-  );
-} else {
-  app.get('/', (_req, res) => res.send('API is running'));
-}
+// Health check
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'active',
+    message: 'Remote Worker API is running',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
+});
 
-// ─── Only start a local HTTP server if NOT on Vercel ─────────────────────────
-if (process.env.VERCEL !== '1') {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
+// Mount API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin/auth', adminAuthRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/admin', adminRoutes);
 
-// ─── Export the Express app for Vercel Serverless ────────────────────────────
+// 404 handler for API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'API endpoint not found',
+    path: req.originalUrl,
+    suggestion: 'Check /api for available endpoints'
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err);
+  
+  res.status(500).json({
+    status: 'error',
+    message: 'Internal server error',
+    ...(process.env.NODE_ENV !== 'production' && { 
+      error: err.message,
+      stack: err.stack 
+    })
+  });
+});
+
+// Export app for Vercel
 module.exports = app;
