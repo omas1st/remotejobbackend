@@ -36,21 +36,11 @@ safeMount('/api/tasks',      './routes/taskRoutes');
 safeMount('/api/wallet',     './routes/walletRoutes');
 safeMount('/api/admin',      './routes/adminRoutes');
 
-// ── Production: serve React build; local: "API is running" ─────────────────────
-if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, 'frontend', 'build');
-  try {
-    app.use(express.static(buildPath));
-    app.get('*', (_req, res) =>
-      res.sendFile(path.join(buildPath, 'index.html'))
-    );
-    console.log(`✔️  Serving React from "${buildPath}"`);
-  } catch (err) {
-    console.error(`❌ Failed to serve static build at "${buildPath}":`, err.message);
-  }
-} else {
-  app.get('/', (_req, res) => res.send('API is running'));
-}
+// ── Respond to GET /api so it doesn’t return 404 in production ─────────────────
+app.get('/api', (_req, res) => res.send('API is running'));
+
+// ── Always respond to GET / with a simple message ─────────────────────────────
+app.get('/', (_req, res) => res.send('API is running'));
 
 // ── When running locally (i.e. not on Vercel), start an HTTP server ──────────
 if (process.env.VERCEL !== '1') {
